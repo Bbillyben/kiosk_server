@@ -1,0 +1,11 @@
+## /etc/logrotate.d/kiosk
+
+/var/log/kiosk.log {
+    daily
+    rotate 14
+    compress
+    missingok
+    notifempty
+    create 664 kioskuser kioskuser
+    copytruncate
+}
