@@ -1,0 +1,18 @@
+[Unit]
+Description=Kiosk Mode
+After=network-online.target
+
+[Service]
+User=kioskuser
+Environment=DISPLAY=:0
+# Environment=XAUTHORITY=/home/kioskuser/.Xauthority
+ExecStart=/usr/bin/python3 /home/kioskuser/kiosk_server/kiosk_start.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=graphical.target
+
+# sudo systemctl daemon-reload
+# sudo systemctl enable kiosk.service
+# sudo systemctl start kiosk.service

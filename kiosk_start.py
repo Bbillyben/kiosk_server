@@ -12,9 +12,11 @@ subprocess.run(["xset", "s", "off"])
 subprocess.run(["xset", "-dpms"])
 subprocess.run(["xset", "s", "noblank"])
 
+# Lancer unclutter pour masquer le curseur
+subprocess.Popen(["unclutter"])
 
 # --- 1️⃣ Configuration ---
-NODE_SERVER_DIR = "/home/kioskuser/kiosk/kiosk_server"
+NODE_SERVER_DIR = "/home/kioskuser/kiosk_server/kiosk_server"
 NODE_EXEC = "/usr/bin/node"
 SERVER_FILE = "server.js"
 SERVER_URL = "http://localhost:8080"   # URL à tester avant de lancer Chromium
