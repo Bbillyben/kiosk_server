@@ -14,6 +14,7 @@ let carouselConfig = {
   reload_interval:10
 };  
 let pages = {}
+let carouselTimer = null;
 
 // === Chargement de la configuration du carousel ===
 async function loadCarouselConfig() {
@@ -22,7 +23,6 @@ async function loadCarouselConfig() {
     if (!response.ok) throw new Error("Impossible de charger la config carousel");
     const data = await response.json();
     carouselConfig = { ...carouselConfig, ...data };
-    console.log("[Carousel config]", carouselConfig);
   } catch (err) {
     console.warn("Erreur config carousel, valeurs par défaut :", err);
   }
@@ -36,9 +36,7 @@ async function loadPages() {
     const data = await response.json();
 
     // recup de la config écrase la précédente
-    console.log("data params :",data);
     carouselConfig = { ...carouselConfig, ...data.params };
-    console.log("[Carousel config] NEW", carouselConfig);
     // Normalisation
     pages = Array.isArray(data) ? data : (data.pages || []);
     if (!pages.length) throw new Error("Aucune page à afficher");
@@ -112,27 +110,46 @@ function renderPages(pages) {
 }
 
 // === Initialisation du carousel Bootstrap ===
+
 function initBootstrapCarousel() {
+  if (carouselTimer) {
+    clearInterval(carouselTimer);
+    carouselTimer = null;
+  }
 
   setTimeout(() => {
     const carouselEl = document.getElementById("myCarousel");
     if (carouselEl) {
       const carousel = new bootstrap.Carousel(carouselEl, {
-        interval: carouselConfig.duration,
+        interval: false, // Désactive l'intervalle automatique
         wrap: carouselConfig.loop,
-        ride: 'carousel',
+        // ride: 'carousel',
         pause: false
       });
-      console.log("✅ Carousel Bootstrap démarré");
-    }
-  }, 500); // 100ms suffit pour que Chromium ait rendu le DOM
 
+      // Timer personnalisé
+      let currentSlide = 0;
+      const slides = carouselEl.querySelectorAll('.carousel-item');
+      carouselTimer  = setInterval(() => {
+        currentSlide = (currentSlide + 1) % slides.length;
+        carousel.to(currentSlide);
+      }, carouselConfig.duration);
+    }
+  }, 1500);
 }
 
 
 async function reloadPages() {
   console.log('.......reloading pages ......')
   try {
+
+    // Nettoyer le timer avant de relancer
+    if (carouselTimer) {
+      clearInterval(carouselTimer);
+      carouselTimer = null;
+      console.log("Timer précédent nettoyé");
+    }
+
     const response = await fetch("/api/pages");   
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
@@ -157,7 +174,6 @@ async function reloadPages() {
 }
 
 function setupReload(){
-  console.log("setup reload interval :"+(carouselConfig.reload_interval ))
   setInterval(reloadPages, carouselConfig.reload_interval * 60 * 1000 || RELOAD_INTERVAL );
 }
 

@@ -48,5 +48,5 @@ app.get("/api/carousel-config", (req, res) => {
 
 // Lancer le serveur
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`✅ Serveur Node.js accessible sur http://<IP_RPI>:${PORT}`);
+  console.log(`Serveur Node.js accessible sur http://<IP_RPI>:${PORT}`);
 });
