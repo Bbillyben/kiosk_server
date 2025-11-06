@@ -119,21 +119,61 @@ function initBootstrapCarousel() {
 
   setTimeout(() => {
     const carouselEl = document.getElementById("myCarousel");
+    const progressCircle = document.querySelector('.global-progress-circle-fg');
+    if (!progressCircle) return;
+
     if (carouselEl) {
       const carousel = new bootstrap.Carousel(carouselEl, {
-        interval: false, // Désactive l'intervalle automatique
+        interval: false,
         wrap: carouselConfig.loop,
-        // ride: 'carousel',
         pause: false
       });
 
-      // Timer personnalisé pour passer à la slide suivante
-      carouselTimer  = setInterval(() => {
-        carousel.next();
-      }, carouselConfig.duration);
+      // Fonction pour réinitialiser le spinner
+      function resetProgressCircle() {
+        progressCircle.style.strokeDashoffset = '283';
+        progressCircle.style.transition = 'none';
+        void progressCircle.offsetWidth;
+        progressCircle.style.transition = 'stroke-dashoffset 0.1s linear';
+      }
+
+      // Fonction pour démarrer l'animation du spinner
+      function startProgressCircle() {
+        resetProgressCircle();
+        const duration = carouselConfig.duration;
+        const start = Date.now();
+        const initialOffset = 283;
+
+        function updateProgress() {
+          const elapsed = Date.now() - start;
+          const progress = Math.min(elapsed / duration, 1);
+          const offset = initialOffset * (1 - progress);
+          progressCircle.style.strokeDashoffset = offset;
+
+          if (progress < 1) {
+            requestAnimationFrame(updateProgress);
+          } else {
+            // Quand le spinner est plein, passer à la slide suivante
+            carousel.next();
+          }
+        }
+
+        requestAnimationFrame(updateProgress);
+      }
+
+      // Écouter les changements de slide pour réinitialiser le spinner
+      carouselEl.addEventListener('slid.bs.carousel', () => {
+        // Attendre la fin de la transition CSS (600 ms) avant de relancer le spinner
+        setTimeout(startProgressCircle, 50);
+      });
+
+      // Démarrer le spinner pour la première slide
+      startProgressCircle();
     }
   }, 1500);
 }
+
+
 
 
 async function reloadPages() {
