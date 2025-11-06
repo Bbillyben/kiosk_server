@@ -127,12 +127,9 @@ function initBootstrapCarousel() {
         pause: false
       });
 
-      // Timer personnalisé
-      let currentSlide = 0;
-      const slides = carouselEl.querySelectorAll('.carousel-item');
+      // Timer personnalisé pour passer à la slide suivante
       carouselTimer  = setInterval(() => {
-        currentSlide = (currentSlide + 1) % slides.length;
-        carousel.to(currentSlide);
+        carousel.next();
       }, carouselConfig.duration);
     }
   }, 1500);
