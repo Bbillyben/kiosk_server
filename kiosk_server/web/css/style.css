@@ -109,6 +109,20 @@ html, body {
 
 
 /* ------------------- */
+/* for Hour display    */
+/* ------------------- */
+.current-time {
+  position: fixed;
+  top: 10px; /* même hauteur que le spinner */
+  right: 20px;
+  font-size: 1rem;
+  color: white;
+  font-family: monospace;
+  z-index: 1000; /* au-dessus du carousel */
+  pointer-events: none; /* ne gêne pas les clics */
+}
+
+/* ------------------- */
 /* for Spinner SLIDE   */
 /* ------------------- */
 .global-progress-circle-container {
@@ -143,3 +157,4 @@ html, body {
   stroke-dashoffset: 283;
   transition: stroke-dashoffset 0.1s linear;
 }
+

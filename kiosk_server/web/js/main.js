@@ -14,7 +14,7 @@ let carouselConfig = {
   reload_interval:10
 };  
 let pages = {}
-let carouselTimer = null;
+let progressAnimFrame  = null
 
 // === Chargement de la configuration du carousel ===
 async function loadCarouselConfig() {
@@ -112,9 +112,9 @@ function renderPages(pages) {
 // === Initialisation du carousel Bootstrap ===
 
 function initBootstrapCarousel() {
-  if (carouselTimer) {
-    clearInterval(carouselTimer);
-    carouselTimer = null;
+  if (progressAnimFrame) {
+    cancelAnimationFrame(progressAnimFrame);
+    progressAnimFrame = null;
   }
 
   setTimeout(() => {
@@ -151,20 +151,24 @@ function initBootstrapCarousel() {
           progressCircle.style.strokeDashoffset = offset;
 
           if (progress < 1) {
-            requestAnimationFrame(updateProgress);
+            progressAnimFrame = requestAnimationFrame(updateProgress);
           } else {
             // Quand le spinner est plein, passer à la slide suivante
             carousel.next();
           }
         }
 
-        requestAnimationFrame(updateProgress);
+        progressAnimFrame = requestAnimationFrame(updateProgress);
       }
 
       // Écouter les changements de slide pour réinitialiser le spinner
       carouselEl.addEventListener('slid.bs.carousel', () => {
         // Attendre la fin de la transition CSS (600 ms) avant de relancer le spinner
         setTimeout(startProgressCircle, 50);
+        if (progressAnimFrame) {
+          cancelAnimationFrame(progressAnimFrame);
+          progressAnimFrame = null;
+        }
       });
 
       // Démarrer le spinner pour la première slide
@@ -173,6 +177,30 @@ function initBootstrapCarousel() {
   }, 1500);
 }
 
+// affichage de l'heure
+function updateCurrentTime() {
+  const timeEl = document.getElementById("current-time");
+  if (!timeEl) return;
+
+  const now = new Date();
+
+  // Heure
+  const hours = String(now.getHours()).padStart(2,'0');
+  const minutes = String(now.getMinutes()).padStart(2,'0');
+  const seconds = String(now.getSeconds()).padStart(2,'0');
+
+  // Jour de la semaine et mois en français
+  const days = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
+  const months = ["Jan", "Fév", "Mar", "Avr", "Mai", "Jun", "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc"];
+
+  const dayName = days[now.getDay()];        // Mer
+  const dayNum = now.getDate();              // 11
+  const monthName = months[now.getMonth()];  // Sep
+  const year = now.getFullYear();            // 2025
+
+  // Affichage : HH:MM:SS - Jour JJ Mois YYYY
+  timeEl.textContent = `${hours}:${minutes}:${seconds} - ${dayName} ${dayNum} ${monthName} ${year}`;
+}
 
 
 
@@ -181,10 +209,9 @@ async function reloadPages() {
   try {
 
     // Nettoyer le timer avant de relancer
-    if (carouselTimer) {
-      clearInterval(carouselTimer);
-      carouselTimer = null;
-      console.log("Timer précédent nettoyé");
+    if (progressAnimFrame) {
+      cancelAnimationFrame(progressAnimFrame);
+      progressAnimFrame = null;
     }
 
     const response = await fetch("/api/pages");   
@@ -212,6 +239,7 @@ async function reloadPages() {
 
 function setupReload(){
   setInterval(reloadPages, carouselConfig.reload_interval * 60 * 1000 || RELOAD_INTERVAL );
+  setInterval(updateCurrentTime, 1000);
 }
 
 // === Démarrage ===

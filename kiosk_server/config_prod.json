@@ -6,6 +6,10 @@
       "show_tabs": true,
       "loop": true,
       "reload_interval": 10
-    } 
+    },
+    "active_hours": {
+      "start": "07:30",
+      "end": "19:45"
+    }
   }
 
