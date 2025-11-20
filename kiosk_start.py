@@ -66,6 +66,8 @@ logging.basicConfig(
 if "DISPLAY" not in os.environ or not os.environ["DISPLAY"]:
     os.environ["DISPLAY"] = ":0"
 
+
+
 def log(msg):
     logging.info(msg)
     
