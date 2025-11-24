@@ -1,5 +1,5 @@
-html, body { 
-    margin: 0; height: 100%; background: #000; color: white; 
+html, body {
+    margin: 0; height: 100%; background: #000; color: white;
 }
 
 .main-page-cont{
@@ -111,17 +111,51 @@ html, body {
 /* ------------------- */
 /* for Hour display    */
 /* ------------------- */
+#time-container{
+  width: 100%;
+  position: absolute;
+  display: flex;
+  top: -10px;
+  align-items: center;
+  justify-content: center;
+}
 .current-time {
-  position: fixed;
-  top: 10px; /* même hauteur que le spinner */
-  right: 20px;
+  display: flex;
   font-size: 1rem;
   color: white;
   font-family: monospace;
   z-index: 1000; /* au-dessus du carousel */
   pointer-events: none; /* ne gêne pas les clics */
+
+  /* Style de l'onglet */
+  background-color: rgba(0, 0, 0, 0.5); /* transparent mais sombre */
+  padding: 5px 25px; /* un peu d'espace autour du texte */
+  border-radius: 12px; /* bords arrondis */
+  box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2); /* légère ombre pour l'effet flottant */
+
+  /* Animation de transition pour un aspect plus fluide */
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+#time-container .main-title{
+  font-style: bold;
+  color:rgb(330, 49, 80)
+}
+#time-container .time-display{
+  margin-left: 0.5em;
 }
 
+/* ------------------- */
+/* for Logo display    */
+/* ------------------- */
+#logo-container{
+  position: absolute;
+  left:10px;
+  bottom:10px;
+}
+#logo-container .log-img{
+  height: 30px;
+  width: auto;
+}
 /* ------------------- */
 /* for Spinner SLIDE   */
 /* ------------------- */

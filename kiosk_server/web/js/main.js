@@ -11,7 +11,8 @@ let carouselConfig = {
   duration: 3 ,
   loop: true,
   show_title: true,
-  reload_interval:10
+  reload_interval:10, 
+  main_title:""
 };  
 let pages = {}
 let progressAnimFrame  = null
@@ -210,7 +211,8 @@ function updateCurrentTime() {
   const year = now.getFullYear();            // 2025
 
   // Affichage : HH:MM:SS - Jour JJ Mois YYYY
-  timeEl.textContent = `${hours}:${minutes}:${seconds} - ${dayName} ${dayNum} ${monthName} ${year}`;
+  timeEl.innerHTML = `<span class="main-title">${carouselConfig.main_title} </span><span class="time-display">${hours}:${minutes}:${seconds} - ${dayName} ${dayNum} ${monthName} ${year}</span>`;
+  
 }
 
 
