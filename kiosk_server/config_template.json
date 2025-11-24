@@ -1,8 +1,8 @@
   {
-    "api_url": "https://labsmanager-umr1190.univ-lille.fr/plugin/kiosk/",
-    "token": "c63ac5352b4cde8a69f66f0910d32f083bf5d13a",
+    "api_url": "[Labsmanager instance URL]/plugin/kiosk/",
+    "token": "TOKEN",
     "carousel":{
-      "carousel_interval": 60000,
+      "carousel_interval": 30,
       "show_tabs": true,
       "loop": true,
       "reload_interval": 10
