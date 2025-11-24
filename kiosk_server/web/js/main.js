@@ -8,13 +8,23 @@ const carouselInner = document.querySelector("#myCarousel .carousel-inner");
 const carouselIndic = document.querySelector("#myCarousel .carousel-indicators");
 
 let carouselConfig = {
-  duration: 3000,
+  duration: 3 ,
   loop: true,
   show_title: true,
   reload_interval:10
 };  
 let pages = {}
 let progressAnimFrame  = null
+
+
+// === Utilitaire pour sortir le slide_duration des paramètres ===
+function getActivePageDuration() {
+  const activeIndex = Array.from(carouselInner.children).findIndex(
+    item => item.classList.contains("active")
+  );
+  const page = pages[activeIndex];
+  return page?.page_duration * 1000 || carouselConfig.duration * 1000;
+}
 
 // === Chargement de la configuration du carousel ===
 async function loadCarouselConfig() {
@@ -140,7 +150,8 @@ function initBootstrapCarousel() {
       // Fonction pour démarrer l'animation du spinner
       function startProgressCircle() {
         resetProgressCircle();
-        const duration = carouselConfig.duration;
+        //const duration = carouselConfig.duration;
+        const duration = getActivePageDuration();
         const start = Date.now();
         const initialOffset = 283;
 
