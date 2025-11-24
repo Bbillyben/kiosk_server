@@ -6,9 +6,10 @@ import signal
 import requests
 from datetime import datetime, time as dtime
 import json
+import logging
 
 # ===============================
-# 🔧 CONFIGURATION GÉNÉRALE
+#     CONFIGURATION GÉNÉRALE
 # ===============================
 
 CONFIG_FILE = "/home/kioskuser/kiosk_server/kiosk_server/config.json"
@@ -49,19 +50,28 @@ CHROMIUM_CMD = [
     SERVER_URL
 ]
 
+
+logging.basicConfig(
+    filename="/var/log/kiosk.log",
+    level=logging.INFO,
+    format='[%(asctime)s] %(message)s',
+    datefmt='%H:%M:%S'
+)
+
 # ===============================
-# ⚙️  PRÉPARATION DE L’ENVIRONNEMENT
+#           UTILITAIRES
 # ===============================
 
-# Forcer DISPLAY=:0 si non défini
+# Forcer DISPLAY=:0 si non défini (test en distanciel)
 if "DISPLAY" not in os.environ or not os.environ["DISPLAY"]:
     os.environ["DISPLAY"] = ":0"
 
-# ===============================
-# ⚙️  FONCTIONS UTILITAIRES
-# ===============================
 
-def load_active_hours():
+
+def log(msg):
+    logging.info(msg)
+    
+def load_active_hours(prev_hours=None):
     """Charge les heures d'activité depuis le fichier config.json"""
     start = DEFAULT_ACTIVE_START
     end = DEFAULT_ACTIVE_END
@@ -76,69 +86,70 @@ def load_active_hours():
                 start = dtime(h1, m1)
                 end = dtime(h2, m2)
     except Exception as err:
-        print(f"⚠️ Impossible de charger la config horaire : {err}")
-    print(f"🕒 Heures actives chargées : début = {start.strftime('%H:%M')} / fin = {end.strftime('%H:%M')}")
+        log(f" Impossible de charger la config horaire : {err}")
 
+    if prev_hours != (start, end):
+        log(f" Heures actives : {start.strftime('%H:%M')} → {end.strftime('%H:%M')}")
     return start, end
 
 def within_active_hours(start, end):
-    """Retourne True si l'heure actuelle est dans la plage autorisée"""
     now = datetime.now().time()
     if start < end:
         return start <= now < end
     else:
-        # Cas où la plage passe minuit (ex: 22h → 06h)
+        # Cas où la plage passe minuit
         return now >= start or now < end
 
 def wait_until_start(start, end):
-    """Attend la prochaine heure d'ouverture"""
-    print("⏸️  En dehors des heures d’activité, attente du créneau...")
+    log("  En dehors des heures d’activité, attente du créneau...")
     while not within_active_hours(start, end):
         time.sleep(CHECK_INTERVAL)
-    print("✅ Créneau horaire actif — démarrage du kiosk")
+    log(" Créneau horaire actif — démarrage du kiosk")
 
-def stop_chromium_and_server(server_process):
-    """Arrête proprement Chromium et le serveur Node"""
-    print("🛑 Fin du créneau horaire — arrêt du kiosk")
+def stop_chromium_and_server(server_process, chromium_process):
+    """Arrête Chromium et le serveur Node proprement"""
+    log(" Fin du créneau horaire — arrêt du kiosk")
+    
+    # Chromium
     subprocess.run(["pkill", "chromium"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    if chromium_process and chromium_process.poll() is None:
+        chromium_process.terminate()
+        try:
+            chromium_process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            chromium_process.kill()
+    
+    # Node.js
     if server_process and server_process.poll() is None:
-        server_process.send_signal(signal.SIGTERM)
-        server_process.wait()
-    # Tente d’éteindre l’écran si X est disponible
+        server_process.terminate()
+        try:
+            server_process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            server_process.kill()
+
+    # Écran off
     try:
         subprocess.run(["xset", "dpms", "force", "off"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except FileNotFoundError:
         pass
-    time.sleep(2)
 
 # ===============================
-# 🚀 BOUCLE PRINCIPALE
+#       BOUCLE PRINCIPALE
 # ===============================
+
+prev_hours = None
 
 while True:
-    ACTIVE_START, ACTIVE_END = load_active_hours()
+    ACTIVE_START, ACTIVE_END = load_active_hours(prev_hours)
+    prev_hours = (ACTIVE_START, ACTIVE_END)
 
     if not within_active_hours(ACTIVE_START, ACTIVE_END):
         wait_until_start(ACTIVE_START, ACTIVE_END)
 
-    # Réactivation écran
-    for cmd in [["xset", "s", "off"], ["xset", "-dpms"], ["xset", "s", "noblank"], ["xset", "dpms", "force", "on"]]:
-        try:
-            subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        except FileNotFoundError:
-            pass
-
-    # Masquer curseur (si unclutter existe)
-    try:
-        subprocess.Popen(["unclutter"])
-    except FileNotFoundError:
-        print("⚠️ unclutter non installé — curseur visible")
-
-    # --- Démarrer le serveur Node.js ---
+    # --- Lancer serveur Node.js ---
     server_process = subprocess.Popen([NODE_EXEC, SERVER_FILE], cwd=NODE_SERVER_DIR)
-    print("➡️ Serveur Node.js lancé, attente de disponibilité...")
+    log(" Serveur Node.js lancé, attente de disponibilité...")
 
-    # Attendre que le serveur soit prêt
     start_time = time.time()
     server_ready = False
     while time.time() - start_time < MAX_WAIT:
@@ -152,23 +163,41 @@ while True:
         time.sleep(PING_INTERVAL)
 
     if not server_ready:
-        print("❌ Serveur Node.js non disponible, arrêt.")
-        server_process.terminate()
-        server_process.wait()
+        log(" Serveur Node.js non disponible, arrêt.")
+        stop_chromium_and_server(server_process, None)
         time.sleep(CHECK_INTERVAL)
         continue
 
-    print("✅ Serveur prêt, lancement de Chromium...")
-    chromium_proc = subprocess.Popen(CHROMIUM_CMD)
+    log(" Serveur prêt, lancement de Chromium...")
+    chromium_process = subprocess.Popen(CHROMIUM_CMD)
+
+    time.sleep(5)
+    # Réactiver écran
+    for cmd in [["xset", "s", "off"], ["xset", "-dpms"], ["xset", "s", "noblank"], ["xset", "dpms", "force", "on"]]:
+        try:
+            subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            time.sleep(0.5)
+        except FileNotFoundError:
+            pass
+
+    # Masquer curseur (si unclutter existe)
+    try:
+        subprocess.run(["pgrep", "unclutter"], check=True, stdout=subprocess.DEVNULL)
+    except subprocess.CalledProcessError:
+        # unclutter non trouvé → lancement
+        try:
+            subprocess.Popen(["unclutter"])
+        except FileNotFoundError:
+            log(" unclutter non installé — curseur visible")
 
     # --- Boucle de surveillance horaire ---
     try:
         while within_active_hours(ACTIVE_START, ACTIVE_END):
             time.sleep(CHECK_INTERVAL)
-            ACTIVE_START, ACTIVE_END = load_active_hours()  # Recharger si modifié
-        stop_chromium_and_server(server_process)
-        chromium_proc.terminate()
+            # Recharge la config si modifiée
+            ACTIVE_START, ACTIVE_END = load_active_hours(prev_hours)
+            prev_hours = (ACTIVE_START, ACTIVE_END)
+        stop_chromium_and_server(server_process, chromium_process)
     except KeyboardInterrupt:
-        stop_chromium_and_server(server_process)
-        chromium_proc.terminate()
+        stop_chromium_and_server(server_process, chromium_process)
         break

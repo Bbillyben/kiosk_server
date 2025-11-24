@@ -1,17 +1,28 @@
+## /etc/systemd/system/kiosk.service
 [Unit]
 Description=Kiosk Mode
-After=network-online.target
+After=graphical.target
+Wants=graphical.target
 
 [Service]
 User=kioskuser
+Group=kioskuser
+
 Environment=DISPLAY=:0
-# Environment=XAUTHORITY=/home/kioskuser/.Xauthority
+Environment=XAUTHORITY=/home/kioskuser/.Xauthority
+Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1001/bus
+
 ExecStart=/usr/bin/python3 /home/kioskuser/kiosk_server/kiosk_start.py
+
+StandardOutput=append:/var/log/kiosk.log
+StandardError=append:/var/log/kiosk.log
+
 Restart=always
 RestartSec=10
 
 [Install]
 WantedBy=graphical.target
+
 
 # sudo systemctl daemon-reload
 # sudo systemctl enable kiosk.service
