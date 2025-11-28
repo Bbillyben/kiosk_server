@@ -29,14 +29,16 @@ function getActivePageDuration() {
 
 // === Chargement de la configuration du carousel ===
 async function loadCarouselConfig() {
+  logToServer("loadCarouselConfig")
   try {
     const response = await fetch("/api/carousel-config");
     if (!response.ok) throw new Error("Impossible de charger la config carousel");
     const data = await response.json();
     carouselConfig = { ...carouselConfig, ...data };
   } catch (err) {
-    console.warn("Erreur config carousel, valeurs par défaut :", err);
+    logToServer("Erreur config carousel, valeurs par défaut :"+ err, "WARN");
   }
+  return carouselConfig;
 }
 
 // === Chargement et normalisation des pages ===
@@ -47,13 +49,13 @@ async function loadPages() {
     const data = await response.json();
 
     // recup de la config écrase la précédente
+    logToServer("Update Config with : "+ JSON.stringify(data.params))
     carouselConfig = { ...carouselConfig, ...data.params };
     // Normalisation
     pages = Array.isArray(data) ? data : (data.pages || []);
     if (!pages.length) throw new Error("Aucune page à afficher");
 
     renderPages(pages);
-    // hide the loading part
       
   } catch (err) {
     console.error("Erreur de chargement des pages :", err);
@@ -61,17 +63,16 @@ async function loadPages() {
       <div class="p-5 text-center text-danger">Erreur : ${err.message}</div>
     </div>`;
   }
+  // hide the loading part
   document.getElementById("loading").style.display="none"
 }
 // === Création des slides ===
 function renderPages(pages) {
-  // while (carouselInner.firstChild) carouselInner.removeChild(carouselInner.firstChild);
   carouselInner.innerHTML = "";
   carouselIndic.innerHTML = "";
   pages.forEach((page, index) => {
     const div = document.createElement("div");
     div.className = "carousel-item" + (index === 0 ? " active" : "");
-    //div.innerHTML = page.html || `<div class="p-3"><h3>${page.title || "Sans titre"}</h3></div>`;
     inner = `<div class="page-content">${page.html || `<h3>${page.title || "Sans titre"}</h3>`}`;
 
     if(page.title && carouselConfig.show_title){
@@ -81,8 +82,6 @@ function renderPages(pages) {
     
       
     div.innerHTML = inner;
-
-
     // Injecter et exécuter scripts inline/externe
     const scripts = div.querySelectorAll("script");
     scripts.forEach(oldScript => {
@@ -99,15 +98,13 @@ function renderPages(pages) {
     carouselInner.appendChild(div);
 
     //Indicators : 
-    //<button type="button" data-bs-target="#myCarousel" data-bs-slide-to="0" class="active" aria-current="true" aria-label="Slide 1">test 2</button>
-    
+
     const div_indic = document.createElement("button");
     div_indic.className = (index === 0 ? " active" : "");
     div_indic.setAttribute("data-bs-target", "#myCarousel")
     div_indic.setAttribute("data-bs-slide-to", index)
     div_indic.setAttribute("data-bs-slide-to", index)
     div_indic.setAttribute("aria-label",  page.title || page.id)
-    // div_indic.innerHTML = page.title || page.id ;
 
     carouselIndic.appendChild(div_indic);
 
@@ -115,13 +112,12 @@ function renderPages(pages) {
     const funcName = `start_${page.id}`;
     if (typeof window[funcName] === "function") {
       try { window[funcName](); }
-      catch(e) { console.error(`Erreur dans ${funcName}:`, e); }
+      catch(e) { logToServer(`Erreur dans ${funcName}:`+ e, "ERROR"); }
     }
   });
 }
 
 // === Initialisation du carousel Bootstrap ===
-
 function initBootstrapCarousel() {
   if (progressAnimFrame) {
     cancelAnimationFrame(progressAnimFrame);
@@ -150,13 +146,14 @@ function initBootstrapCarousel() {
 
       // Fonction pour démarrer l'animation du spinner
       function startProgressCircle() {
+        cancelAnimationFrame(progressAnimFrame);
         resetProgressCircle();
-        //const duration = carouselConfig.duration;
         const duration = getActivePageDuration();
         const start = Date.now();
         const initialOffset = 283;
 
         function updateProgress() {
+          
           const elapsed = Date.now() - start;
           const progress = Math.min(elapsed / duration, 1);
           const offset = initialOffset * (1 - progress);
@@ -165,7 +162,6 @@ function initBootstrapCarousel() {
           if (progress < 1) {
             progressAnimFrame = requestAnimationFrame(updateProgress);
           } else {
-            // Quand le spinner est plein, passer à la slide suivante
             carousel.next();
           }
         }
@@ -205,20 +201,20 @@ function updateCurrentTime() {
   const days = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
   const months = ["Jan", "Fév", "Mar", "Avr", "Mai", "Jun", "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc"];
 
-  const dayName = days[now.getDay()];        // Mer
-  const dayNum = now.getDate();              // 11
-  const monthName = months[now.getMonth()];  // Sep
-  const year = now.getFullYear();            // 2025
+  const dayName = days[now.getDay()];
+  const dayNum = now.getDate();
+  const monthName = months[now.getMonth()];
+  const year = now.getFullYear();
 
-  // Affichage : HH:MM:SS - Jour JJ Mois YYYY
+  // Affichage
   timeEl.innerHTML = `<span class="main-title">${carouselConfig.main_title} </span><span class="time-display">${hours}:${minutes}:${seconds} - ${dayName} ${dayNum} ${monthName} ${year}</span>`;
   
 }
 
 
-
+// pour le reload des pages
 async function reloadPages() {
-  console.log('.......reloading pages ......')
+  logToServer('.......reloading pages ......')
   try {
 
     // Nettoyer le timer avant de relancer
@@ -226,27 +222,11 @@ async function reloadPages() {
       cancelAnimationFrame(progressAnimFrame);
       progressAnimFrame = null;
     }
-
-    const response = await fetch("/api/pages");   
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const data = await response.json();
-
-    // Normalisation
-    let newPages = [];
-    if (Array.isArray(data)) {
-      newPages = data;
-    } else if (data && Array.isArray(data.pages)) {
-      newPages = data.pages;
-    } else {
-      throw new Error("Format de réponse invalide");
-    }
-
-    pages = newPages;
-    renderPages(pages);        // reconstruire le carousel
-    initBootstrapCarousel(); // réinitialiser le carousel Bootstrap
+    loadPages(); 
+    initBootstrapCarousel();
 
   } catch (err) {
-    console.error("Erreur rechargement des pages :", err);
+    logToServer("Erreur rechargement des pages :"+ err, "ERROR");
   }
 }
 
@@ -255,11 +235,27 @@ function setupReload(){
   setInterval(updateCurrentTime, 1000);
 }
 
+// fonction de log
+async function logToServer(message, level = "info") {
+  try {
+    const response = await fetch("/api/log", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ message, level }),
+    });
+    if (!response.ok) {
+      console.error("Erreur lors de l'envoi du log au serveur");
+    }
+  } catch (err) {
+    console.error("Erreur réseau :", err);
+  }
+}
+
 // === Démarrage ===
-// loadPages().then(loadCarouselConfig().then(initBootstrapCarousel));
 loadCarouselConfig()
   .then(() => loadPages())
   .then(() => initBootstrapCarousel())
   .then(()=> setupReload())
-  .catch(err => console.error(err));
-
+  .catch(err => logToServer(err, "ERROR"));

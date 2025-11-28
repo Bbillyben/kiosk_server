@@ -2,8 +2,8 @@
     "api_url": "[Labsmanager instance URL]/plugin/kiosk/",
     "token": "TOKEN",
     "carousel":{
-      "carousel_interval": 30,
-      "show_tabs": true,
+      "duration":3, 
+      "show_title": false,
       "loop": true,
       "reload_interval": 10
     },
