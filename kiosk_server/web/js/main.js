@@ -18,6 +18,12 @@ let pages = {}
 let progressAnimFrame  = null
 
 
+// pour les erreur 500
+
+let retryCount = 0;
+const MAX_RETRIES = 60; // Nombre max de tentatives avant abandon
+const RETRY_DELAY = 60000; // 1 minute entre chaque tentative
+
 // === Utilitaire pour sortir le slide_duration des paramètres ===
 function getActivePageDuration() {
   const activeIndex = Array.from(carouselInner.children).findIndex(
@@ -56,15 +62,17 @@ async function loadPages() {
     if (!pages.length) throw new Error("Aucune page à afficher");
 
     renderPages(pages);
+    document.getElementById("loading").style.display="none"
       
   } catch (err) {
     console.error("Erreur de chargement des pages :", err);
-    carouselInner.innerHTML = `<div class="carousel-item active">
-      <div class="p-5 text-center text-danger">Erreur : ${err.message}</div>
-    </div>`;
+    // carouselInner.innerHTML = `<div class="carousel-item active">
+    //   <div class="p-5 text-center text-danger">Erreur : ${err.message}</div>
+    // </div>`;
+    throw err; // Relance l'erreur pour que retryLoadPages la gère
   }
   // hide the loading part
-  document.getElementById("loading").style.display="none"
+  
 }
 // === Création des slides ===
 function renderPages(pages) {
@@ -222,11 +230,38 @@ async function reloadPages() {
       cancelAnimationFrame(progressAnimFrame);
       progressAnimFrame = null;
     }
-    loadPages(); 
-    initBootstrapCarousel();
+    await retryLoadPages();
 
   } catch (err) {
     logToServer("Erreur rechargement des pages :"+ err, "ERROR");
+  }
+}
+
+async function retryLoadPages() {
+  try {
+    await loadPages();
+    initBootstrapCarousel();
+    retryCount = 0; // Réinitialise le compteur si succès
+  } catch (err) {
+    retryCount++;
+    const delay = Math.min(RETRY_DELAY * retryCount, 300000);
+    logToServer(`Erreur chargement pages (tentative ${retryCount}/${MAX_RETRIES}), relance dans ${delay/1000}s`, "WARN");
+    if (retryCount < MAX_RETRIES) {
+      setTimeout(retryLoadPages, delay);
+      carouselInner.innerHTML = `<div class="carousel-item active">
+        <div class="p-5 text-center text-warning">
+          Erreur temporaire, nouvelle tentative dans ${delay/1000} secondes...
+        </div>
+      </div>`;
+    } else {
+      carouselInner.innerHTML = `<div class="carousel-item active">
+        <div class="p-5 text-center text-danger">
+          Erreur persistante : ${err.message}<br>
+          Le carousel ne peut pas être chargé.
+        </div>
+      </div>`;
+      logToServer("Abandon après " + MAX_RETRIES + " tentatives", "ERROR");
+    }
   }
 }
 
@@ -255,7 +290,7 @@ async function logToServer(message, level = "info") {
 
 // === Démarrage ===
 loadCarouselConfig()
-  .then(() => loadPages())
+  .then(() => retryLoadPages())
   .then(() => initBootstrapCarousel())
   .then(()=> setupReload())
   .catch(err => logToServer(err, "ERROR"));
